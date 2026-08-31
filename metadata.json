@@ -1,0 +1,7 @@
+{
+  "name": "17Player Cricket",
+  "description": "Premium cricket companion app with live scores, 17-player squads, match predictions, and leaderboards.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
