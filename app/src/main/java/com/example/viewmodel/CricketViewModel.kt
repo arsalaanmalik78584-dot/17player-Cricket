@@ -344,14 +344,4 @@ class CricketViewModel(application: Application) : AndroidViewModel(application)
     fun resetBillingState() {
         billingRepository.resetBillingState()
     }
-
-    fun debugSimulatePurchase() {
-        billingRepository.debugSimulatePurchaseSuccess()
-        showMessage("Debug: Premium unlocked for testing.")
-    }
-
-    fun debugResetPremium() {
-        billingRepository.debugResetPremium()
-        showMessage("Debug: Premium entitlement reset.")
-    }
 }

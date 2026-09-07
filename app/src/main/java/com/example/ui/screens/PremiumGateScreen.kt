@@ -43,7 +43,7 @@ fun PremiumGateScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val activity = context as? Activity
+    val activity = remember(context) { context.findActivity() }
     val billingState by viewModel.billingState.collectAsState()
     val priceText by viewModel.premiumPriceText.collectAsState()
     val scrollState = rememberScrollState()
@@ -51,6 +51,21 @@ fun PremiumGateScreen(
     val isPurchasing = billingState is BillingUiState.Purchasing
     val isRestoring = billingState is BillingUiState.Restoring
     val isPending = billingState is BillingUiState.Pending
+
+    LaunchedEffect(billingState) {
+        when (val state = billingState) {
+            is BillingUiState.Error -> {
+                viewModel.showMessage(state.message, isError = true)
+            }
+            is BillingUiState.Success -> {
+                viewModel.showMessage(state.message, isError = false)
+            }
+            is BillingUiState.Pending -> {
+                viewModel.showMessage("Payment is pending confirmation from Google Play.", isError = false)
+            }
+            else -> {}
+        }
+    }
 
     Box(
         modifier = modifier
@@ -93,35 +108,6 @@ fun PremiumGateScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(8.dp))
-
-            // Demo / Test Mode indicator for development builds
-            if (BuildConfig.DEBUG) {
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = Color(0x26F59E0B),
-                    border = BorderStroke(1.dp, Color(0x66F59E0B)),
-                    modifier = Modifier.padding(bottom = 8.dp).testTag("demo_test_mode_indicator")
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = Color(0xFFF59E0B),
-                            modifier = Modifier.size(7.dp)
-                        ) {}
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "DEMO / TEST MODE",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 1.2.sp,
-                            color = Color(0xFFFBBF24)
-                        )
-                    }
-                }
-            }
 
             // 17Player Brand Badge
             Surface(
@@ -379,9 +365,11 @@ fun PremiumGateScreen(
             // Primary Action: GET PREMIUM — ₹49
             Button(
                 onClick = {
+                    android.util.Log.i("PremiumGateScreen", "GET PREMIUM button tapped. Activity found: ${activity != null}")
                     if (activity != null) {
                         viewModel.purchasePremium(activity)
                     } else {
+                        android.util.Log.e("PremiumGateScreen", "Cannot launch billing: Activity is null from context $context")
                         viewModel.showMessage("Cannot launch billing: Activity unavailable", isError = true)
                     }
                 },
@@ -425,18 +413,6 @@ fun PremiumGateScreen(
                         color = Color.White
                     )
                 }
-            }
-
-            if (BuildConfig.DEBUG) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Premium Test Mode — No real payment",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFFFBBF24),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.testTag("debug_test_mode_label")
-                )
             }
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -484,6 +460,39 @@ fun PremiumGateScreen(
                 }
             }
 
+            // Billing Error Banner (visible if Google Play reports an error)
+            val currentError = (billingState as? BillingUiState.Error)?.message
+            if (currentError != null) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0x33EF4444),
+                    border = BorderStroke(1.dp, Color(0x66EF4444)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("billing_error_banner")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = Color(0xFFF87171),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = currentError,
+                            fontSize = 12.sp,
+                            color = Color(0xFFFCA5A5),
+                            lineHeight = 16.sp
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(18.dp))
 
             // Google Play Security & Legal Notices
@@ -525,52 +534,6 @@ fun PremiumGateScreen(
                 lineHeight = 13.sp
             )
 
-            // DEBUG / TESTING CONTROLS (strictly BuildConfig.DEBUG only)
-            if (BuildConfig.DEBUG) {
-                Spacer(modifier = Modifier.height(24.dp))
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFF1E293B).copy(alpha = 0.8f),
-                    border = BorderStroke(1.dp, Color(0x33FFFFFF)),
-                    modifier = Modifier.fillMaxWidth().testTag("debug_test_panel")
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "🛠️ DEBUG TESTING PANEL (DEV ONLY)",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = CricketGold
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            Button(
-                                onClick = { viewModel.debugSimulatePurchase() },
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                                modifier = Modifier.testTag("debug_simulate_purchase_button")
-                            ) {
-                                Text("Simulate Unlock", fontSize = 11.sp)
-                            }
-                            OutlinedButton(
-                                onClick = { viewModel.debugResetPremium() },
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                                modifier = Modifier.testTag("debug_reset_premium_button")
-                            ) {
-                                Text("Reset Gate", fontSize = 11.sp, color = Color(0xFFE2E8F0))
-                            }
-                        }
-                    }
-                }
-            }
-
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
@@ -607,4 +570,13 @@ private fun PremiumBenefitRow(
             color = Color(0xFFE2E8F0)
         )
     }
+}
+
+/**
+ * Traverses context wrappers to safely retrieve the host Activity in Jetpack Compose.
+ */
+private tailrec fun android.content.Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is android.content.ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
